@@ -87,18 +87,19 @@ bool Recorder::start( const RecorderSettings &settings, bool forceIfNotReady )
 	std::vector<std::string> args = {
 	    "-y",   // overwrite
 	    "-an",  // disable audio -- todo: add audio,
-
+		m_settings.extraPreArgs,
 	    // input
 	    "-r " + ofToString( m_settings.fps ),                      // input frame rate
 	    "-s " + std::to_string( m_settings.videoResolution.x ) +   // input resolution x
 	        "x" + std::to_string( m_settings.videoResolution.y ),  // input resolution y
 	    "-f rawvideo",                                             // input codec
-	    "-pix_fmt rgb24",                                          // input pixel format
+		//"-pixel_format rgba",
+	    "-pix_fmt rgba",                                          // input pixel format
 	    m_settings.extraInputArgs,                                 // custom input args
 	    "-i pipe:",                                                // input source (default pipe)
-
+		"-vf 'format=nv12,hwupload'",
 	    // output
-	    "-r " + ofToString( m_settings.fps ),              // output frame rate
+	    "-r " + ofToString( m_settings.outFPS ),              // output frame rate
 	    "-c:v " + m_settings.videoCodec,                   // output codec
 	    "-b:v " + ofToString( m_settings.bitrate ) + "k",  // output bitrate kbps (hint)
 	    m_settings.extraOutputArgs,                        // custom output args
@@ -237,7 +238,7 @@ void Recorder::processFrame()
 
 				if ( /*m_frames.consume( pixels ) && */ pixels ) {
 					const unsigned char *data = pixels->getData();
-					const size_t dataLength   = m_settings.videoResolution.x * m_settings.videoResolution.y * 3;
+					const size_t dataLength   = m_settings.videoResolution.x * m_settings.videoResolution.y * pixels->getBytesPerPixel();
 
 					m_pipeMtx.lock();
 					size_t written = m_ffmpegPipe ? fwrite( data, sizeof( char ), dataLength, m_ffmpegPipe ) : 0;

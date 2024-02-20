@@ -8,10 +8,13 @@ struct RecorderSettings
 	std::string outputPath      = "output.mp4";
 	glm::ivec2 videoResolution  = { 640, 480 };
 	float fps                   = 30.f;
+	float outFPS				= 30.f;
 	unsigned int bitrate        = 20000;  // kbps
-	std::string videoCodec      = "libx264";
+	std::string videoCodec      = "h264_vaapi"; // libx264
+	std::string extraPreArgs    = "-hwaccel vaapi -vaapi_device /dev/dri/renderD128";
 	std::string extraInputArgs  = "";
-	std::string extraOutputArgs = "-pix_fmt yuv420p -vsync 1 -g 1";  // -crf 0 -preset ultrafast -tune zerolatency setpts='(RTCTIME - RTCSTART) / (TB * 1000000)'
+	//std::string extraOutputArgs = "-vf 'format=nv12,hwupload'";  // -pix_fmt yuva420p -g 1 -crf 0 -preset ultrafast -tune zerolatency setpts='(RTCTIME - RTCSTART) / (TB * 1000000)'
+	std::string extraOutputArgs = "";
 	bool allowOverwrite         = true;
 	std::string ffmpegPath      = "ffmpeg";
 };
