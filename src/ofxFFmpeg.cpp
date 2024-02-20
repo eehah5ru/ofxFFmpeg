@@ -4,6 +4,9 @@
 #include "ofSoundStream.h"
 #include "ofVideoGrabber.h"
 
+#include <string.h>
+
+
 // Logging macros
 #define LOG_ERROR() ofLogError( "ofxFFmpeg" ) << __FUNCTION__ << ": "
 #define LOG_WARNING() ofLogWarning( "ofxFFmpeg" ) << __FUNCTION__ << ": "
@@ -109,10 +112,7 @@ bool Recorder::start( const RecorderSettings &settings, bool forceIfNotReady )
 	std::unique_lock<std::mutex> lck( m_pipeMtx );
 	if ( m_ffmpegPipe ) {
 		if ( P_CLOSE( m_ffmpegPipe ) < 0 ) {
-			// get error string from 'errno' code
-			char errmsg[500];
-			strerror_s( errmsg, 500, errno );
-			LOG_ERROR() << "Error closing FFmpeg pipe. Error: " << errmsg;
+			LOG_ERROR() << "Error closing FFmpeg pipe. Error: " << strerror(errno);
 		}
 	}
 	lck.unlock();
@@ -122,10 +122,7 @@ bool Recorder::start( const RecorderSettings &settings, bool forceIfNotReady )
 	lck.lock();
 	m_ffmpegPipe = P_OPEN( cmd.c_str() );
 	if ( !m_ffmpegPipe ) {
-		// get error string from 'errno' code
-		char errmsg[500];
-		strerror_s( errmsg, 500, errno );
-		LOG_ERROR() << "Unable to open ffmpeg pipe to start recording. Error: " << errmsg;
+		LOG_ERROR() << "Unable to open ffmpeg pipe to start recording. Error: " << strerror(errno);
 		return false;
 	}
 	lck.unlock();
@@ -266,10 +263,7 @@ void Recorder::processFrame()
 	m_pipeMtx.lock();
 	if ( m_ffmpegPipe ) {
 		if ( P_CLOSE( m_ffmpegPipe ) < 0 ) {
-			// get error string from 'errno' code
-			char errmsg[500];
-			strerror_s( errmsg, 500, errno );
-			LOG_ERROR() << "Error closing FFmpeg pipe. Error: " << errmsg;
+			LOG_ERROR() << "Error closing FFmpeg pipe. Error: " << strerror(errno);
 		}
 	}
 	m_ffmpegPipe = nullptr;

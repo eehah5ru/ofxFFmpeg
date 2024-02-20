@@ -8,6 +8,7 @@
 #include "ofSoundBaseTypes.h"
 #include "ofVideoBaseTypes.h"
 #include <mutex>
+#include <list>
 
 #if defined( TARGET_OSX )
 #include <thread>
