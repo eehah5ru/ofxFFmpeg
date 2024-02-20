@@ -10,5 +10,27 @@
 			"path": "${workspaceRoot}/../../../../addons"
 		}
 	],
-	"settings": {}
+	"settings": {
+		"files.associations": {
+			"*.ipp": "cpp",
+			"array": "cpp",
+			"chrono": "cpp",
+			"deque": "cpp",
+			"forward_list": "cpp",
+			"list": "cpp",
+			"string": "cpp",
+			"unordered_map": "cpp",
+			"unordered_set": "cpp",
+			"vector": "cpp",
+			"string_view": "cpp",
+			"format": "cpp",
+			"initializer_list": "cpp",
+			"ranges": "cpp",
+			"span": "cpp",
+			"regex": "cpp",
+			"valarray": "cpp",
+			"mutex": "cpp",
+			"shared_mutex": "cpp"
+		}
+	}
 }
