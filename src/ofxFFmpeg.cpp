@@ -224,7 +224,7 @@ void Recorder::processFrame()
 			// feed frames at constant fps
 			float delta = Seconds( Clock::now() - lastFrameTime ).count();
 
-			if ( delta >= framedur ) {
+			if ( delta >= framedur / 2) {
 
 				if ( !m_isRecording ) {
 					LOG_NOTICE() << "Recording stopped, but finishing frame queue - " << m_frames.size() << " remaining frames at " << m_settings.fps << " fps";
