@@ -8,6 +8,8 @@
 #include "ofSoundBaseTypes.h"
 #include "ofVideoBaseTypes.h"
 
+#include <list>
+
 #if defined( TARGET_OSX )
 #include <thread>
 #endif

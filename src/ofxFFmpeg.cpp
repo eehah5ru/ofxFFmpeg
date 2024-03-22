@@ -4,6 +4,8 @@
 #include "ofSoundStream.h"
 #include "ofVideoGrabber.h"
 
+#include "string.h"
+
 // Logging macros
 #define LOG_ERROR() ofLogError( "ofxFFmpeg" ) << __FUNCTION__ << ": "
 #define LOG_WARNING() ofLogWarning( "ofxFFmpeg" ) << __FUNCTION__ << ": "
@@ -102,9 +104,9 @@ bool Recorder::start( const RecorderSettings &settings )
 
 	if ( !m_ffmpegPipe ) {
 		// get error string from 'errno' code
-		char errmsg[500];
-		strerror_s( errmsg, 500, errno );
-		LOG_ERROR() << "Unable to start recording. Error: " << errmsg;
+		// char errmsg[500];
+		// strerror_r( errmsg, 500, errno );
+		LOG_ERROR() << "Unable to start recording. Error: " << strerror(errno);
 		return false;
 	}
 	return m_isRecording = true;
@@ -226,9 +228,9 @@ void Recorder::processFrame()
 	if ( m_ffmpegPipe ) {
 		if ( P_CLOSE( m_ffmpegPipe ) < 0 ) {
 			// get error string from 'errno' code
-			char errmsg[500];
-			strerror_s( errmsg, 500, errno );
-			LOG_ERROR() << "Error closing FFmpeg pipe. Error: " << errmsg;
+			// char errmsg[500];
+			// strerror_r( errmsg, 500, errno );
+			LOG_ERROR() << "Error closing FFmpeg pipe. Error: " << strerror(errno);
 		}
 	}
 
