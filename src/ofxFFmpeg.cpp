@@ -50,16 +50,12 @@ bool Recorder::start( const RecorderSettings &settings, bool forceIfNotReady )
 		if ( forceIfNotReady ) {
 			LOG_WARNING() << "Starting new recording - cancelling previous still-processing recording '" << m_settings.outputPath << "' and deleting " << numFramesInQueue() << " queued frames...";
 			ofPixels *pixels = nullptr;
-			m_mtx.lock();
-			while ( m_frames.consume( pixels ) ) {
-				if ( pixels ) {
-					pixels->clear();
-					delete pixels;
-				}
+      
+			while ( pixels = m_frames.pop().value_or(nullptr) ) {
+        pixels->clear();
+        delete pixels;
 			}
-			m_mtx.unlock();
 		} else {
-
 			LOG_ERROR() << "Can't start recording - previous recording is still processing " << numFramesInQueue() << " frames";
 			return false;
 		}
@@ -176,6 +172,7 @@ size_t Recorder::addFrame( const ofPixels &pixels )
 		return 0;
 	}
 
+  // restart if finished
 	if ( m_nAddedFrames == 0 ) {
 		if ( m_thread.joinable() ) m_thread.join();  //detach();
 		m_thread          = std::thread( &Recorder::processFrame, this );
@@ -191,7 +188,7 @@ size_t Recorder::addFrame( const ofPixels &pixels )
 
 	// drop or duplicate frames to maintain constant framerate
 	while ( m_nAddedFrames == 0 || framesToWrite > written ) {
-	  LOG_NOTICE() << "adding frame";
+	  // LOG_NOTICE() << "adding frame";
 	  
 		// if ( !pixPtr ) {
 		// 	pixPtr = new ofPixels( pixels );  // copy pixel data
@@ -199,9 +196,7 @@ size_t Recorder::addFrame( const ofPixels &pixels )
 
 		pixPtr = new ofPixels( pixels );  // copy pixel data
 
-		m_mtx.lock();
-		m_frames.produce( pixPtr );
-		m_mtx.unlock();
+		m_frames.push(pixPtr);
 		
 
 		// if ( written == framesToWrite - 1 ) {
@@ -222,7 +217,7 @@ size_t Recorder::addFrame( const ofPixels &pixels )
 		++written;
 		m_lastFrameTime = Clock::now();
 
-		LOG_NOTICE() << "frame added";
+		// LOG_NOTICE() << "frame added";
 	}
 
 	return written;
@@ -233,52 +228,80 @@ void Recorder::processFrame()
 {
 	while ( m_isRecording ) {
 
-		TimePoint lastFrameTime = Clock::now();
-		const float framedur    = 1.f / m_settings.fps;
+		// TimePoint lastFrameTime = Clock::now();
+		// const float framedur    = 1.f / m_settings.fps;
+
+    ofPixels *pixels = nullptr;
 
 		while ( m_frames.size() ) {  // allows finish processing queue after we call stop()
 
-			// feed frames at constant fps
-			float delta = Seconds( Clock::now() - lastFrameTime ).count();
+      if ( !m_isRecording ) {
+        LOG_NOTICE() << "Recording stopped, but finishing frame queue - " << m_frames.size() << " remaining frames at " << m_settings.fps << " fps";
+      }
 
-			if ( delta >= framedur) {
-
-				if ( !m_isRecording ) {
-					LOG_NOTICE() << "Recording stopped, but finishing frame queue - " << m_frames.size() << " remaining frames at " << m_settings.fps << " fps";
-				}
-
-				ofPixels *pixels = nullptr;
-				bool isConsumed = false;
-				
-				m_mtx.lock();
-				isConsumed = m_frames.consume( pixels );
-				m_mtx.unlock();
-
-				if ( isConsumed && pixels && pixels->isAllocated()) {
-				  LOG_NOTICE() << "sending frame to ffmpeg. queue size: " << m_frames.size();
-				  const unsigned char *data = pixels->getData();
+      if ( (pixels = m_frames.pop().value_or(nullptr)) && pixels->isAllocated()) {
+        LOG_NOTICE() << "sending frame to ffmpeg. queue rest size: " << m_frames.size();
+        const unsigned char *data = pixels->getData();
 				  //const size_t dataLength   = m_settings.videoResolution.x * m_settings.videoResolution.y * pixels->getBytesPerPixel();
-				  const size_t dataLength = pixels->getTotalBytes();
-
-				  LOG_NOTICE() << "writing " << dataLength << " bytes to ffmpeg";
-				  m_pipeMtx.lock();
-				  size_t written = m_ffmpegPipe ? fwrite( data, sizeof( char ), dataLength, m_ffmpegPipe ) : 0;
-				  fflush(m_ffmpegPipe);
-				  m_pipeMtx.unlock();
-
-				  if ( written <= 0 ) {
-				    LOG_WARNING() << "Unable to write the frame.";
+        const size_t dataLength = pixels->getTotalBytes();
+        
+        LOG_NOTICE() << "writing " << dataLength << " bytes to ffmpeg";
+        m_pipeMtx.lock();
+        size_t written = m_ffmpegPipe ? fwrite( data, sizeof( char ), dataLength, m_ffmpegPipe ) : 0;
+        fflush(m_ffmpegPipe);
+        m_pipeMtx.unlock();
+        
+        if ( written <= 0 ) {
+          LOG_WARNING() << "Unable to write the frame.";
 				  }
-
-				  pixels->clear();
-				  delete pixels;
-				  
-				  lastFrameTime = Clock::now();
-
-				  LOG_NOTICE() << "sent frame to ffmpeg. queue size: " << m_frames.size();
+        
+        pixels->clear();
+        delete pixels;
+				        
+        LOG_NOTICE() << "sent frame to ffmpeg. queue size: " << m_frames.size();
 					
-				}
-			}
+      }
+      
+
+      //
+			// old version - timestamp based
+			// 
+			// // feed frames at constant fps
+			// float delta = Seconds( Clock::now() - lastFrameTime ).count();
+
+			// if ( delta >= framedur * 2) {
+
+			// 	if ( !m_isRecording ) {
+			// 		LOG_NOTICE() << "Recording stopped, but finishing frame queue - " << m_frames.size() << " remaining frames at " << m_settings.fps << " fps";
+			// 	}
+
+			// 	ofPixels *pixels = nullptr;
+				
+			// 	if ( (pixels = m_frames.pop().value_or(nullptr)) && pixels->isAllocated()) {
+			// 	  LOG_NOTICE() << "sending frame to ffmpeg. queue rest size: " << m_frames.size();
+			// 	  const unsigned char *data = pixels->getData();
+			// 	  //const size_t dataLength   = m_settings.videoResolution.x * m_settings.videoResolution.y * pixels->getBytesPerPixel();
+			// 	  const size_t dataLength = pixels->getTotalBytes();
+
+			// 	  LOG_NOTICE() << "writing " << dataLength << " bytes to ffmpeg";
+			// 	  m_pipeMtx.lock();
+			// 	  size_t written = m_ffmpegPipe ? fwrite( data, sizeof( char ), dataLength, m_ffmpegPipe ) : 0;
+			// 	  fflush(m_ffmpegPipe);
+			// 	  m_pipeMtx.unlock();
+
+			// 	  if ( written <= 0 ) {
+			// 	    LOG_WARNING() << "Unable to write the frame.";
+			// 	  }
+
+			// 	  pixels->clear();
+			// 	  delete pixels;
+				  
+			// 	  lastFrameTime = Clock::now();
+
+			// 	  LOG_NOTICE() << "sent frame to ffmpeg. queue size: " << m_frames.size();
+					
+			// 	}
+			// }
 		}
 	}
 

@@ -1,5 +1,6 @@
 #pragma once
 #include "ofxFFmpegHelpers.h"
+#include "ThreadSafeQueue.hpp"
 
 namespace ofxFFmpeg {
 
@@ -22,20 +23,20 @@ struct RecorderSettings
   //
   // orange pi / still not working
   // 
-  // 	std::string videoCodec      = "h264_rkmpp"; // libx264
-  // 	std::string extraPreArgs    = " -fflags +discardcorrupt -re -hwaccel rkmpp -hwaccel_device /dev/dri/renderD128 -hwaccel_output_format drm_prime ";
-  // 	std::string extraInputArgs  = "";
-  // //std::string extraOutputArgs = "-vf 'format=nv12,hwupload'";  // -pix_fmt yuva420p -g 1 -crf 0 -preset ultrafast -tune zerolatency setpts='(RTCTIME - RTCSTART) / (TB * 1000000)'
-  // std::string extraOutputArgs = " -g 12";
+  	std::string videoCodec      = "h264_rkmpp"; // libx264
+  	std::string extraPreArgs    = " -fflags +discardcorrupt -re -hwaccel rkmpp -hwaccel_device /dev/dri/renderD128 -hwaccel_output_format drm_prime ";
+  	std::string extraInputArgs  = "";
+  //std::string extraOutputArgs = "-vf 'format=nv12,hwupload'";  // -pix_fmt yuva420p -g 1 -crf 0 -preset ultrafast -tune zerolatency setpts='(RTCTIME - RTCSTART) / (TB * 1000000)'
+  std::string extraOutputArgs = " -g 12";
 
   //
   // libx264
   //
-  std::string videoCodec      = "libx264"; // libx264
-  std::string extraPreArgs    = " -fflags +discardcorrupt -re ";
-  std::string extraInputArgs  = "";
-  //std::string extraOutputArgs = "-vf 'format=nv12,hwupload'";  // -pix_fmt yuva420p -g 1 -crf 0 -preset ultrafast -tune zerolatency setpts='(RTCTIME - RTCSTART) / (TB * 1000000)'
-  std::string extraOutputArgs = " -pix_fmt yuva420p -g 250 -crf 27 -preset ultrafast -tune zerolatency -vf setpts='(RTCTIME - RTCSTART) / (TB * 1000000)'";
+  // std::string videoCodec      = "libx264"; // libx264
+  // std::string extraPreArgs    = " -fflags +discardcorrupt -re ";
+  // std::string extraInputArgs  = "";
+  // //std::string extraOutputArgs = "-vf 'format=nv12,hwupload'";  // -pix_fmt yuva420p -g 1 -crf 0 -preset ultrafast -tune zerolatency setpts='(RTCTIME - RTCSTART) / (TB * 1000000)'
+  // std::string extraOutputArgs = " -pix_fmt yuva420p -g 250 -crf 27 -preset ultrafast -tune zerolatency -vf setpts='(RTCTIME - RTCSTART) / (TB * 1000000)'";
 
   //
   // raw video
@@ -77,8 +78,9 @@ protected:
 	TimePoint m_recordStartTime, m_lastFrameTime;
 	unsigned int m_nAddedFrames;
 	std::thread m_thread;
-	LockFreeQueue<ofPixels*> m_frames;
-	std::mutex m_mtx, m_pipeMtx;
+	// LockFreeQueue<ofPixels*> m_frames;
+  ThreadsafeQueue<ofPixels*> m_frames;
+	std::mutex m_pipeMtx;
 
 	void processFrame();
 };
