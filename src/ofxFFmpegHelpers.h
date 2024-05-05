@@ -9,6 +9,7 @@
 #include "ofVideoBaseTypes.h"
 #include <mutex>
 #include <list>
+#include <iostream>
 
 #if defined( TARGET_OSX )
 #include <thread>
@@ -37,13 +38,16 @@ struct LockFreeQueue
 
 	void produce( const T& t )
 	{
-		m_List.push_back( t );
-		m_TailIt = m_List.end();
-		m_List.erase( m_List.begin(), m_HeadIt );
+	  std::cerr << "LockFreeQueue: producing frame" << std::endl;
+	  m_List.push_back( t );
+	  m_TailIt = m_List.end();
+	  m_List.erase( m_List.begin(), m_HeadIt );
+	  std::cerr << "LockFreeQueue: produced frame" << std::endl;
 	}
 
 	bool consume( T& t )
 	{
+	  std::cerr << "LockFreeQueue: consuming frame" << std::endl;
 		typename TList::iterator nextIt = m_HeadIt;
 		++nextIt;
 		if ( nextIt != m_TailIt ) {

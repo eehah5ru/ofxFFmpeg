@@ -89,22 +89,29 @@ bool Recorder::start( const RecorderSettings &settings, bool forceIfNotReady )
 	    "-an",  // disable audio -- todo: add audio,
 		m_settings.extraPreArgs,
 	    // input
-	    "-r " + ofToString( m_settings.fps ),                      // input frame rate
-	    "-s " + std::to_string( m_settings.videoResolution.x ) +   // input resolution x
+	    "-framerate " + ofToString( m_settings.fps ),                      // input frame rate
+	    "-video_size " + std::to_string( m_settings.videoResolution.x ) +   // input resolution x
 	        "x" + std::to_string( m_settings.videoResolution.y ),  // input resolution y
 	    "-f rawvideo",                                             // input codec
 		//"-pixel_format rgba",
 	    "-pix_fmt rgba",                                          // input pixel format
 	    m_settings.extraInputArgs,                                 // custom input args
 	    "-i pipe:",                                                // input source (default pipe)
-		"-vf 'format=nv12,hwupload'",
+	    //"-vf 'format=nv12,hwupload'",
 	    // output
-	    "-r " + ofToString( m_settings.outFPS ),              // output frame rate
-	    "-c:v " + m_settings.videoCodec,                   // output codec
-	    "-b:v " + ofToString( m_settings.bitrate ) + "k",  // output bitrate kbps (hint)
-	    m_settings.extraOutputArgs,                        // custom output args
-	    m_settings.outputPath                              // output path
+	  	    
 	};
+
+	// add codec specific args if there is codec
+	if (!m_settings.videoCodec.empty()) {
+	  args.push_back("-r " + ofToString( m_settings.outFPS ));              // output frame rate
+	  args.push_back("-c:v " + m_settings.videoCodec);                   // output codec
+	  args.push_back("-b:v " + ofToString( m_settings.bitrate ) + "k");  // output bitrate kbps (hint)
+	}
+
+	args.push_back(ofToString(m_settings.extraOutputArgs));                        // custom output args
+	args.push_back(ofToString(m_settings.outputPath));                              // output path
+
 
 	for ( const auto &arg : args ) {
 		if ( !arg.empty() ) cmd += " " + arg;
@@ -184,28 +191,38 @@ size_t Recorder::addFrame( const ofPixels &pixels )
 
 	// drop or duplicate frames to maintain constant framerate
 	while ( m_nAddedFrames == 0 || framesToWrite > written ) {
+	  LOG_NOTICE() << "adding frame";
+	  
+		// if ( !pixPtr ) {
+		// 	pixPtr = new ofPixels( pixels );  // copy pixel data
+		// }
 
-		if ( !pixPtr ) {
-			pixPtr = new ofPixels( pixels );  // copy pixel data
-		}
+		pixPtr = new ofPixels( pixels );  // copy pixel data
 
-		if ( written == framesToWrite - 1 ) {
-			// only the last frame we produce owns the pixel data
-			m_mtx.lock();
-			m_frames.produce( pixPtr );
-			m_mtx.unlock();
-		} else {
-			// otherwise, we reference the data
-			ofPixels *pixRef = new ofPixels();
-			pixRef->setFromExternalPixels( pixPtr->getData(), pixPtr->getWidth(), pixPtr->getHeight(), pixPtr->getPixelFormat() );  // re-use already copied pointer
-			m_mtx.lock();
-			m_frames.produce( pixRef );
-			m_mtx.unlock();
-		}
+		m_mtx.lock();
+		m_frames.produce( pixPtr );
+		m_mtx.unlock();
+		
+
+		// if ( written == framesToWrite - 1 ) {
+		// 	// only the last frame we produce owns the pixel data
+		// 	m_mtx.lock();
+		// 	m_frames.produce( pixPtr );
+		// 	m_mtx.unlock();
+		// } else {
+		// 	// otherwise, we reference the data
+		// 	ofPixels *pixRef = new ofPixels();
+		// 	pixRef->setFromExternalPixels( pixPtr->getData(), pixPtr->getWidth(), pixPtr->getHeight(), pixPtr->getPixelFormat() );  // re-use already copied pointer
+		// 	m_mtx.lock();
+		// 	m_frames.produce( pixRef );
+		// 	m_mtx.unlock();
+		// }
 
 		++m_nAddedFrames;
 		++written;
 		m_lastFrameTime = Clock::now();
+
+		LOG_NOTICE() << "frame added";
 	}
 
 	return written;
@@ -224,34 +241,42 @@ void Recorder::processFrame()
 			// feed frames at constant fps
 			float delta = Seconds( Clock::now() - lastFrameTime ).count();
 
-			if ( delta >= framedur / 2) {
+			if ( delta >= framedur) {
 
 				if ( !m_isRecording ) {
 					LOG_NOTICE() << "Recording stopped, but finishing frame queue - " << m_frames.size() << " remaining frames at " << m_settings.fps << " fps";
 				}
 
 				ofPixels *pixels = nullptr;
-
+				bool isConsumed = false;
+				
 				m_mtx.lock();
-				m_frames.consume( pixels );
+				isConsumed = m_frames.consume( pixels );
 				m_mtx.unlock();
 
-				if ( /*m_frames.consume( pixels ) && */ pixels ) {
-					const unsigned char *data = pixels->getData();
-					const size_t dataLength   = m_settings.videoResolution.x * m_settings.videoResolution.y * pixels->getBytesPerPixel();
+				if ( isConsumed && pixels && pixels->isAllocated()) {
+				  LOG_NOTICE() << "sending frame to ffmpeg. queue size: " << m_frames.size();
+				  const unsigned char *data = pixels->getData();
+				  //const size_t dataLength   = m_settings.videoResolution.x * m_settings.videoResolution.y * pixels->getBytesPerPixel();
+				  const size_t dataLength = pixels->getTotalBytes();
 
-					m_pipeMtx.lock();
-					size_t written = m_ffmpegPipe ? fwrite( data, sizeof( char ), dataLength, m_ffmpegPipe ) : 0;
-					m_pipeMtx.unlock();
+				  LOG_NOTICE() << "writing " << dataLength << " bytes to ffmpeg";
+				  m_pipeMtx.lock();
+				  size_t written = m_ffmpegPipe ? fwrite( data, sizeof( char ), dataLength, m_ffmpegPipe ) : 0;
+				  fflush(m_ffmpegPipe);
+				  m_pipeMtx.unlock();
 
-					if ( written <= 0 ) {
-						LOG_WARNING() << "Unable to write the frame.";
-					}
+				  if ( written <= 0 ) {
+				    LOG_WARNING() << "Unable to write the frame.";
+				  }
 
-					pixels->clear();
-					delete pixels;
+				  pixels->clear();
+				  delete pixels;
+				  
+				  lastFrameTime = Clock::now();
 
-					lastFrameTime = Clock::now();
+				  LOG_NOTICE() << "sent frame to ffmpeg. queue size: " << m_frames.size();
+					
 				}
 			}
 		}

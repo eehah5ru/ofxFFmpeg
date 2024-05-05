@@ -10,11 +10,42 @@ struct RecorderSettings
 	float fps                   = 30.f;
 	float outFPS				= 30.f;
 	unsigned int bitrate        = 20000;  // kbps
-	std::string videoCodec      = "h264_vaapi"; // libx264
-	std::string extraPreArgs    = "-hwaccel vaapi -vaapi_device /dev/dri/renderD128";
-	std::string extraInputArgs  = "";
-	//std::string extraOutputArgs = "-vf 'format=nv12,hwupload'";  // -pix_fmt yuva420p -g 1 -crf 0 -preset ultrafast -tune zerolatency setpts='(RTCTIME - RTCSTART) / (TB * 1000000)'
-	std::string extraOutputArgs = "";
+  //
+  // FW laptop / ryzen 7040
+  // 	
+  // 	std::string videoCodec      = "h264_vaapi"; // libx264
+  // 	std::string extraPreArgs    = "-hwaccel vaapi -vaapi_device /dev/dri/renderD128";
+  // 	std::string extraInputArgs  = "";
+  // //std::string extraOutputArgs = "-vf 'format=nv12,hwupload'";  // -pix_fmt yuva420p -g 1 -crf 0 -preset ultrafast -tune zerolatency setpts='(RTCTIME - RTCSTART) / (TB * 1000000)'
+  // std::string extraOutputArgs = "";
+
+  //
+  // orange pi / still not working
+  // 
+  // 	std::string videoCodec      = "h264_rkmpp"; // libx264
+  // 	std::string extraPreArgs    = " -fflags +discardcorrupt -re -hwaccel rkmpp -hwaccel_device /dev/dri/renderD128 -hwaccel_output_format drm_prime ";
+  // 	std::string extraInputArgs  = "";
+  // //std::string extraOutputArgs = "-vf 'format=nv12,hwupload'";  // -pix_fmt yuva420p -g 1 -crf 0 -preset ultrafast -tune zerolatency setpts='(RTCTIME - RTCSTART) / (TB * 1000000)'
+  // std::string extraOutputArgs = " -g 12";
+
+  //
+  // libx264
+  //
+  std::string videoCodec      = "libx264"; // libx264
+  std::string extraPreArgs    = " -fflags +discardcorrupt -re ";
+  std::string extraInputArgs  = "";
+  //std::string extraOutputArgs = "-vf 'format=nv12,hwupload'";  // -pix_fmt yuva420p -g 1 -crf 0 -preset ultrafast -tune zerolatency setpts='(RTCTIME - RTCSTART) / (TB * 1000000)'
+  std::string extraOutputArgs = " -pix_fmt yuva420p -g 250 -crf 27 -preset ultrafast -tune zerolatency -vf setpts='(RTCTIME - RTCSTART) / (TB * 1000000)'";
+
+  //
+  // raw video
+  // 
+  // std::string videoCodec      = ""; // libx264
+  // std::string extraPreArgs    = "";
+  // std::string extraInputArgs  = "";
+  // std::string extraOutputArgs = "-f rawvideo";
+
+  
 	bool allowOverwrite         = true;
 	std::string ffmpegPath      = "ffmpeg";
 };
